@@ -26,7 +26,7 @@ st.markdown("""
         font-size: 1.8rem !important;
     }
     
-    /* H2 Sektions-Überschriften in Semi-Bold (500) und nicht Versal */
+    /* H2 Sektions-Überschriften in Semi-Bold (500) */
     h2 { 
         color: #E0E0E0 !important; 
         font-family: 'Roboto', sans-serif !important; 
@@ -69,41 +69,41 @@ st.markdown("""
     
     /* --- ECHTE BROWSER-REITER MIT LINIE --- */
     .stTabs [data-baseweb="tab-list"] { 
-        gap: 6px; 
-        background-color: transparent; 
-        border-bottom: 1px solid #2a2e39; 
-        padding-bottom: 0px;
+        gap: 6px !important; 
+        background-color: transparent !important; 
+        border-bottom: 2px solid #2a2e39 !important; 
+        padding-bottom: 0px !important;
     }
-    .stTabs [data-baseweb="tab"] { 
-        background-color: #16181d; 
-        border-top-left-radius: 6px; 
-        border-top-right-radius: 6px; 
-        color: #78828c; 
-        border: 1px solid #232730; 
-        border-bottom: none;
-        padding: 10px 18px; 
+    .stTabs button[data-baseweb="tab"] { 
+        background-color: #16181d !important; 
+        border-top-left-radius: 6px !important; 
+        border-top-right-radius: 6px !important; 
+        color: #90A4AE !important; 
+        border: 1px solid #2a2e39 !important; 
+        border-bottom: none !important;
+        padding: 10px 18px !important; 
         font-family: 'Roboto', sans-serif !important;
-        text-transform: uppercase; 
-        font-weight: 500; 
-        font-size: 0.8rem; 
-        letter-spacing: 0.6px;
-        margin-bottom: -1px;
+        text-transform: uppercase !important; 
+        font-weight: 500 !important; 
+        font-size: 0.85rem !important; 
+        letter-spacing: 0.5px !important;
+        margin-bottom: 0px !important;
     }
-    .stTabs [data-baseweb="tab"]:hover {
-        color: #B0BEC5;
-        background-color: #1a1d23;
+    .stTabs button[data-baseweb="tab"]:hover {
+        color: #FFFFFF !important;
+        background-color: #1f232a !important;
     }
-    .stTabs [aria-selected="true"] { 
+    .stTabs button[data-baseweb="tab"][aria-selected="true"] { 
         background-color: #1a1d23 !important; 
         color: #00E5FF !important; 
         border: 1px solid #2a2e39 !important;
-        border-top: 2px solid #00E5FF !important;
-        border-bottom: 1px solid #1a1d23 !important;
+        border-top: 3px solid #00E5FF !important;
+        border-bottom: 2px solid #121417 !important;
         font-weight: 700 !important;
+        margin-bottom: -2px !important;
     }
-    /* Unterdrückt den Standard-Unterstrich von Streamlit bei Tabs */
-    .stTabs [data-baseweb="tab-highlight"] {
-        display: none;
+    .stTabs [data-baseweb="tab-highlight"], .stTabs [data-baseweb="tab-border"] {
+        display: none !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -139,6 +139,29 @@ else:
 if api_key:
     genai.configure(api_key=api_key)
 
+def get_working_model():
+    """Ermittelt einmalig blitzschnell das exakt freigeschaltete 3.x/latest Modell für diesen API-Key."""
+    if "working_gemini_model" in st.session_state:
+        return st.session_state["working_gemini_model"]
+        
+    try:
+        avail = [
+            m.name for m in genai.list_models() 
+            if 'generateContent' in m.supported_generation_methods
+        ]
+        # Prioritätsliste: Zuerst nach 3.0 / 3.x Flash suchen, dann nach 'flash-latest'
+        for keyword in ['gemini-3', 'flash-latest', 'pro-latest', 'flash']:
+            for m_name in avail:
+                if keyword in m_name and '1.5' not in m_name and '2.0' not in m_name and '2.5' not in m_name:
+                    st.session_state["working_gemini_model"] = m_name
+                    return m_name
+        if avail:
+            st.session_state["working_gemini_model"] = avail[0]
+            return avail[0]
+    except Exception:
+        pass
+    return 'models/gemini-flash-latest'
+
 def analyze_ingredients_with_gemini(ingredients_text):
     if not api_key:
         st.error("Kein API-Key gefunden! Bitte in den Streamlit Secrets hinterlegen.")
@@ -162,27 +185,17 @@ def analyze_ingredients_with_gemini(ingredients_text):
       "gesamt_kcal": 4112
     }}
     """
-    
-    # Exakt die Modelle für neue API-Keys (3.8-flash auf Platz 1 -> sofortige Antwort ohne Wartezeit!)
-    models_to_try = [
-        'gemini-3.8-flash',
-        'gemini-flash-latest',
-        'gemini-3.0-flash'
-    ]
-    
-    last_err = None
-    for m_name in models_to_try:
-        try:
-            model = genai.GenerativeModel(m_name)
-            response = model.generate_content(prompt)
-            clean_text = response.text.replace("```json", "").replace("```", "").strip()
-            return json.loads(clean_text)
-        except Exception as e:
-            last_err = e
-            continue
-            
-    st.error(f"Fehler bei der KI-Analyse: {last_err}")
-    return None
+    try:
+        model_name = get_working_model()
+        model = genai.GenerativeModel(model_name)
+        response = model.generate_content(prompt)
+        clean_text = response.text.replace("```json", "").replace("```", "").strip()
+        return json.loads(clean_text)
+    except Exception as e:
+        # Falls das gecachte Modell fehlschlägt, Cache leeren
+        st.session_state.pop("working_gemini_model", None)
+        st.error(f"Fehler bei der KI-Analyse: {e}")
+        return None
 
 # --- Session States ---
 if "saved_sossen" not in st.session_state:
