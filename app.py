@@ -2,8 +2,8 @@ import streamlit as st
 import google.generativeai as genai
 import json
 
-# --- Konfiguration & Custom Dark-Steel-Design (Browser-Tabs & Flat Icons) ---
-st.set_page_config(page_title="Kitchen OS", page_icon="🍳", layout="centered")
+# --- Konfiguration & Custom Dark-Steel-Design (Semi-Bold Überschriften & Icons) ---
+st.set_page_config(page_title="Kitchen & Meal Prep OS", page_icon="🍳", layout="centered")
 
 st.markdown("""
     <style>
@@ -15,12 +15,27 @@ st.markdown("""
     .stApp { background-color: #121417; color: #E0E0E0; }
     [data-testid="stSidebar"] { background-color: #1a1d23; border-right: 1px solid #2a2e39; }
     
-    h1, h2, h3 { 
+    /* Hauptüberschriften (H1) fett */
+    h1 { 
         color: #FFFFFF !important; 
         font-family: 'Roboto', sans-serif !important; 
         font-weight: 700 !important;
         letter-spacing: 0.5px;
         text-transform: uppercase;
+    }
+    
+    /* Sektions-Überschriften (H2) jetzt in Semi-Bold (500) statt fett */
+    h2 { 
+        color: #FFFFFF !important; 
+        font-family: 'Roboto', sans-serif !important; 
+        font-weight: 500 !important;
+        font-size: 1.4rem !important;
+        letter-spacing: 0.3px;
+    }
+    
+    h3 {
+        color: #FFFFFF !important;
+        font-weight: 700 !important;
     }
     
     .stTextInput input, .stTextArea textarea, .stSelectbox div[data-baseweb="select"], .stNumberInput input {
@@ -46,7 +61,7 @@ st.markdown("""
     [data-testid="stMetricLabel"] { color: #90A4AE !important; text-transform: uppercase; font-size: 0.8rem !important; letter-spacing: 0.5px; }
     [data-testid="stMetricValue"] { color: #00E5FF !important; font-family: 'Roboto Mono', monospace !important; font-weight: 700 !important; }
     
-    /* --- BROWSER-TAB STYLING (Echte Reiter mit Abtrennung & Linie) --- */
+    /* --- BROWSER-TAB STYLING --- */
     .stTabs [data-baseweb="tab-list"] { 
         gap: 4px; 
         background-color: #121417; 
@@ -60,7 +75,7 @@ st.markdown("""
         color: #8C96A0; 
         border: 1px solid #2a2e39; 
         border-bottom: none;
-        padding: 10px 20px; 
+        padding: 10px 18px; 
         text-transform: uppercase; 
         font-weight: 500; 
         font-size: 0.8rem; 
@@ -104,12 +119,14 @@ else:
     if api_key_input:
         api_key = api_key_input.strip()
 
+if api_key:
+    genai.configure(api_key=api_key)
+
 def analyze_ingredients_with_gemini(ingredients_text):
     if not api_key:
         st.error("Kein API-Key gefunden! Bitte in den Streamlit Secrets hinterlegen.")
         return None
         
-    genai.configure(api_key=api_key)
     prompt = f"""
     Du bist ein präziser Ernährungs- und Küchenassistent. Analysiere die folgende Zutatenliste für ein Gericht.
     Ermittle für jede Zutat das Gewicht in Gramm (ml bei Flüssigkeiten = g) und die Gesamtkalorien (kcal) für die angegebene Menge.
@@ -129,7 +146,7 @@ def analyze_ingredients_with_gemini(ingredients_text):
     }}
     """
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.0-flash')
         response = model.generate_content(prompt)
         clean_text = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(clean_text)
@@ -146,11 +163,11 @@ if "saved_mischungen" not in st.session_state:
     st.session_state["saved_mischungen"] = {}
 
 # --- App Header ---
-st.title("Kitchen OS")
+st.title("Kitchen & Meal Prep OS")
 st.markdown("<p style='color: #90A4AE; letter-spacing: 0.3px;'>Präzise Nährwertberechnung nach dem Kochverlust & Teller-Modus</p>", unsafe_allow_html=True)
 
-# Tabs mit sauberen Flat-Icons
-tab1, tab2, tab3, tab4 = st.tabs(["[SOẞE]", "[BEILAGEN]", "[PFANNE / MIX]", "[TELLER]"])
+# Tabs mit sauberen Flat-Icons & Browser-Look
+tab1, tab2, tab3, tab4 = st.tabs(["🍲 SOẞE", "🍝 BEILAGEN", "🔥 PFANNE / MIX", "🍽️ TELLER"])
 
 # ==========================================
 # TAB 1: SOẞE / EINTOPF
@@ -158,7 +175,6 @@ tab1, tab2, tab3, tab4 = st.tabs(["[SOẞE]", "[BEILAGEN]", "[PFANNE / MIX]", "[
 with tab1:
     st.header("Soße oder Eintopf berechnen")
     
-    # Verwaltung / Löschen von alten Soßen, falls welche da sind
     if st.session_state["saved_sossen"]:
         with st.expander("Gesp.-Soßen verwalten / löschen"):
             to_delete = []
