@@ -2,45 +2,49 @@ import streamlit as st
 import google.generativeai as genai
 import json
 
-# --- Konfiguration & Custom Dark-Steel-Design (Semi-Bold Überschriften & Icons) ---
-st.set_page_config(page_title="Kitchen & Meal Prep OS", page_icon="🍳", layout="centered")
+# --- Konfiguration & Custom Dark-Steel-Design (Roboto & Material Flat Icons) ---
+st.set_page_config(page_title="Kitchen & Meal Prep OS", page_icon=":material/scale:", layout="centered")
 
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@500;700&family=Roboto:wght@400;500;700&display=swap');
 
-    html, body, [class*="css"], .stApp, p, label, div, span {
+    /* Wichtig: 'span' nicht überschreiben, damit die Material Flat-Icons perfekt geladen werden! */
+    html, body, .stApp, p, label, input, textarea {
         font-family: 'Roboto', sans-serif !important;
     }
     .stApp { background-color: #121417; color: #E0E0E0; }
     [data-testid="stSidebar"] { background-color: #1a1d23; border-right: 1px solid #2a2e39; }
     
-    /* Hauptüberschriften (H1) fett */
+    /* H1 Haupttitel */
     h1 { 
         color: #FFFFFF !important; 
         font-family: 'Roboto', sans-serif !important; 
         font-weight: 700 !important;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.8px;
         text-transform: uppercase;
+        font-size: 1.8rem !important;
     }
     
-    /* Sektions-Überschriften (H2) jetzt in Semi-Bold (500) statt fett */
+    /* H2 Sektions-Überschriften in Semi-Bold (500) und nicht Versal */
     h2 { 
-        color: #FFFFFF !important; 
+        color: #E0E0E0 !important; 
         font-family: 'Roboto', sans-serif !important; 
         font-weight: 500 !important;
-        font-size: 1.4rem !important;
-        letter-spacing: 0.3px;
+        font-size: 1.35rem !important;
+        letter-spacing: 0.2px;
+        text-transform: none !important;
     }
     
     h3 {
         color: #FFFFFF !important;
-        font-weight: 700 !important;
+        font-family: 'Roboto', sans-serif !important;
+        font-weight: 500 !important;
     }
     
+    /* Eingabefelder */
     .stTextInput input, .stTextArea textarea, .stSelectbox div[data-baseweb="select"], .stNumberInput input {
         background-color: #1a1d23 !important; color: #FFFFFF !important; border: 1px solid #2a2e39 !important; border-radius: 4px !important;
-        font-family: 'Roboto', sans-serif !important;
     }
     .stNumberInput input {
         font-family: 'Roboto Mono', monospace !important;
@@ -49,44 +53,57 @@ st.markdown("""
         border-color: #00E5FF !important; box-shadow: 0 0 0 1px #00E5FF !important;
     }
     
+    /* Buttons */
     .stButton>button {
         width: 100%; background: linear-gradient(135deg, #2a2e39 0%, #1f232a 100%); color: #00E5FF; border: 1px solid #00E5FF; border-radius: 4px; 
-        font-family: 'Roboto', sans-serif !important; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; transition: all 0.2s ease;
+        font-family: 'Roboto', sans-serif !important; font-weight: 500; letter-spacing: 0.8px; text-transform: uppercase; transition: all 0.2s ease;
     }
     .stButton>button:hover { background: #00E5FF; color: #121417; border-color: #00E5FF; }
     
+    /* Metrik-Boxen */
     [data-testid="stMetric"] {
         background-color: #1a1d23; border: 1px solid #2a2e39; padding: 15px; border-radius: 4px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
     }
-    [data-testid="stMetricLabel"] { color: #90A4AE !important; text-transform: uppercase; font-size: 0.8rem !important; letter-spacing: 0.5px; }
+    [data-testid="stMetricLabel"] { color: #90A4AE !important; text-transform: uppercase; font-size: 0.75rem !important; letter-spacing: 0.5px; }
     [data-testid="stMetricValue"] { color: #00E5FF !important; font-family: 'Roboto Mono', monospace !important; font-weight: 700 !important; }
     
-    /* --- BROWSER-TAB STYLING --- */
+    /* --- ECHTE BROWSER-REITER MIT LINIE --- */
     .stTabs [data-baseweb="tab-list"] { 
-        gap: 4px; 
-        background-color: #121417; 
-        border-bottom: 2px solid #2a2e39; 
+        gap: 6px; 
+        background-color: transparent; 
+        border-bottom: 1px solid #2a2e39; 
         padding-bottom: 0px;
     }
     .stTabs [data-baseweb="tab"] { 
-        background-color: #161920; 
+        background-color: #16181d; 
         border-top-left-radius: 6px; 
         border-top-right-radius: 6px; 
-        color: #8C96A0; 
-        border: 1px solid #2a2e39; 
+        color: #78828c; 
+        border: 1px solid #232730; 
         border-bottom: none;
         padding: 10px 18px; 
+        font-family: 'Roboto', sans-serif !important;
         text-transform: uppercase; 
         font-weight: 500; 
         font-size: 0.8rem; 
-        letter-spacing: 0.5px;
+        letter-spacing: 0.6px;
+        margin-bottom: -1px;
+    }
+    .stTabs [data-baseweb="tab"]:hover {
+        color: #B0BEC5;
+        background-color: #1a1d23;
     }
     .stTabs [aria-selected="true"] { 
         background-color: #1a1d23 !important; 
         color: #00E5FF !important; 
-        border-color: #00E5FF #2a2e39 transparent #2a2e39 !important;
+        border: 1px solid #2a2e39 !important;
         border-top: 2px solid #00E5FF !important;
+        border-bottom: 1px solid #1a1d23 !important;
         font-weight: 700 !important;
+    }
+    /* Unterdrückt den Standard-Unterstrich von Streamlit bei Tabs */
+    .stTabs [data-baseweb="tab-highlight"] {
+        display: none;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -145,14 +162,27 @@ def analyze_ingredients_with_gemini(ingredients_text):
       "gesamt_kcal": 4112
     }}
     """
-    try:
-        model = genai.GenerativeModel('gemini-2.0-flash')
-        response = model.generate_content(prompt)
-        clean_text = response.text.replace("```json", "").replace("```", "").strip()
-        return json.loads(clean_text)
-    except Exception as e:
-        st.error(f"Fehler bei der KI-Analyse: {e}")
-        return None
+    
+    # Exakt die Modelle für neue API-Keys (3.8-flash auf Platz 1 -> sofortige Antwort ohne Wartezeit!)
+    models_to_try = [
+        'gemini-3.8-flash',
+        'gemini-flash-latest',
+        'gemini-3.0-flash'
+    ]
+    
+    last_err = None
+    for m_name in models_to_try:
+        try:
+            model = genai.GenerativeModel(m_name)
+            response = model.generate_content(prompt)
+            clean_text = response.text.replace("```json", "").replace("```", "").strip()
+            return json.loads(clean_text)
+        except Exception as e:
+            last_err = e
+            continue
+            
+    st.error(f"Fehler bei der KI-Analyse: {last_err}")
+    return None
 
 # --- Session States ---
 if "saved_sossen" not in st.session_state:
@@ -164,10 +194,15 @@ if "saved_mischungen" not in st.session_state:
 
 # --- App Header ---
 st.title("Kitchen & Meal Prep OS")
-st.markdown("<p style='color: #90A4AE; letter-spacing: 0.3px;'>Präzise Nährwertberechnung nach dem Kochverlust & Teller-Modus</p>", unsafe_allow_html=True)
+st.markdown("<p style='color: #90A4AE; letter-spacing: 0.3px; margin-top: -10px; margin-bottom: 20px;'>Präzise Nährwertberechnung nach dem Kochverlust & Teller-Modus</p>", unsafe_allow_html=True)
 
-# Tabs mit sauberen Flat-Icons & Browser-Look
-tab1, tab2, tab3, tab4 = st.tabs(["🍲 SOẞE", "🍝 BEILAGEN", "🔥 PFANNE / MIX", "🍽️ TELLER"])
+# Tabs mit echten, einfarbigen Material-Flat-Icons
+tab1, tab2, tab3, tab4 = st.tabs([
+    ":material/soup_kitchen: Soße", 
+    ":material/dinner_dining: Beilagen", 
+    ":material/skillet: Pfanne / Mix", 
+    ":material/restaurant: Teller"
+])
 
 # ==========================================
 # TAB 1: SOẞE / EINTOPF
@@ -176,16 +211,13 @@ with tab1:
     st.header("Soße oder Eintopf berechnen")
     
     if st.session_state["saved_sossen"]:
-        with st.expander("Gesp.-Soßen verwalten / löschen"):
-            to_delete = []
+        with st.expander(":material/delete: Gespeicherte Soßen verwalten / löschen"):
             for s_name in list(st.session_state["saved_sossen"].keys()):
-                if st.button(f"Lösche Soße: {s_name}", key=f"del_s_{s_name}"):
-                    to_delete.append(s_name)
-            for d in to_delete:
-                del st.session_state["saved_sossen"][d]
-                st.rerun()
+                if st.button(f"Löschen: {s_name}", key=f"del_s_{s_name}"):
+                    del st.session_state["saved_sossen"][s_name]
+                    st.rerun()
 
-    sossen_name = st.text_input("Name der Soße (z.B. Ragù 14.10.)", "Ragù alla Bolognese")
+    sossen_name = st.text_input("Name der Soße (bei gleichem Namen wird überschrieben)", "Ragù alla Bolognese")
     ingredients_input = st.text_area(
         "Zutaten (Nutze die Sprachtaste der Tastatur!):", 
         placeholder="z.B. 1600g Hackfleisch mit 247 kcal pro 100g, 800g Dosentomaten, 200ml Weißwein, 20ml Olivenöl..."
@@ -200,13 +232,13 @@ with tab1:
     tara_sosse = TOEPFE[topf_sosse]
     netto_sosse = brutto_sosse - tara_sosse
 
-    if st.button("Soße berechnen", type="primary"):
+    if st.button(":material/calculate: Soße berechnen", type="primary"):
         if not ingredients_input:
             st.warning("Bitte Zutaten eingeben.")
         elif brutto_sosse <= 0:
             st.warning("Bitte Bruttogewicht angeben.")
         else:
-            with st.spinner("Analysiere Zutaten mit Gemini..."):
+            with st.spinner("Analysiere Zutaten..."):
                 data = analyze_ingredients_with_gemini(ingredients_input)
                 if data:
                     gesamt_kcal = data["gesamt_kcal"]
@@ -227,7 +259,7 @@ with tab1:
                         
                         st.info(f"Kochverlust (Verdunstung): {verlust_g:.0f} g ({verlust_pct:.1f}%) — Rohgewicht war ca. {rohgewicht_ki} g")
                         
-                        with st.expander("Aufschlüsselung der erkannten Zutaten"):
+                        with st.expander(":material/list: Aufschlüsselung der erkannten Zutaten"):
                             for z in data.get("zutaten_details", []):
                                 st.write(f"- **{z['name']}**: {z['gewicht_g']} g ({z['kcal']} kcal)")
                                 
@@ -241,14 +273,11 @@ with tab2:
     st.header("Beilagen (Nudeln etc.)")
     
     if st.session_state["saved_beilagen"]:
-        with st.expander("Gesp.-Beilagen verwalten / löschen"):
-            b_delete = []
+        with st.expander(":material/delete: Gespeicherte Beilagen verwalten / löschen"):
             for b_name in list(st.session_state["saved_beilagen"].keys()):
-                if st.button(f"Lösche Beilage: {b_name}", key=f"del_b_{b_name}"):
-                    b_delete.append(b_name)
-            for d in b_delete:
-                del st.session_state["saved_beilagen"][d]
-                st.rerun()
+                if st.button(f"Löschen: {b_name}", key=f"del_b_{b_name}"):
+                    del st.session_state["saved_beilagen"][b_name]
+                    st.rerun()
 
     beilagen_name = st.text_input("Name der Beilage", "Barilla Spaghetti")
     b1, b2 = st.columns(2)
@@ -262,7 +291,7 @@ with tab2:
     tara_nudel = TOEPFE[topf_nudel]
     netto_nudel = brutto_nudel - tara_nudel
 
-    if st.button("Gekochte Beilage berechnen", type="primary"):
+    if st.button(":material/calculate: Gekochte Beilage berechnen", type="primary"):
         if trocken_g <= 0 or brutto_nudel <= 0:
             st.warning("Bitte Gewichte ausfüllen.")
         elif netto_nudel <= 0:
@@ -285,17 +314,14 @@ with tab3:
     st.header("Pfanne / Misch-Event")
     
     if st.session_state["saved_mischungen"]:
-        with st.expander("Gesp.-Mischungen verwalten / löschen"):
-            m_delete = []
+        with st.expander(":material/delete: Gespeicherte Mischungen verwalten / löschen"):
             for m_name in list(st.session_state["saved_mischungen"].keys()):
-                if st.button(f"Lösche Mischung: {m_name}", key=f"del_m_{m_name}"):
-                    m_delete.append(m_name)
-            for d in m_delete:
-                del st.session_state["saved_mischungen"][d]
-                st.rerun()
+                if st.button(f"Löschen: {m_name}", key=f"del_m_{m_name}"):
+                    del st.session_state["saved_mischungen"][m_name]
+                    st.rerun()
 
     st.write("Kombiniere Soße, gekochte Nudeln, Nudelwasser und Extras zu einer neuen Gesamtmischung.")
-    misch_name = st.text_input("Name der Mischung", "Bolognese mit Spaghetti (Batch)")
+    misch_name = st.text_input("Name der Mischung", "Bolognese mit Spaghetti")
     s_list = list(st.session_state["saved_sossen"].keys())
     b_list = list(st.session_state["saved_beilagen"].keys())
     
@@ -309,9 +335,9 @@ with tab3:
         with col_ex1:
             nudelwasser_g = st.number_input("Nudelwasser hinzugefügt (ml/g):", min_value=0.0, step=10.0, value=100.0)
         with col_ex2:
-            extra_kcal = st.number_input("Extras-Kalorien (z.B. Parmesan):", min_value=0.0, step=10.0, value=215.0)
+            extra_kcal = st.number_input("Extras-Kalorien (z.B. 50g Parmesan = 215 kcal):", min_value=0.0, step=10.0, value=215.0)
             
-        if st.button("Mischung berechnen & speichern", type="primary"):
+        if st.button(":material/merge: Mischung berechnen & speichern", type="primary"):
             kcal_s = (menge_s_g / 100.0) * st.session_state["saved_sossen"][chosen_s]["kcal_100g"]
             kcal_b = (menge_b_g / 100.0) * st.session_state["saved_beilagen"][chosen_b]["kcal_100g"]
             gesamt_misch_kcal = kcal_s + kcal_b + extra_kcal
@@ -342,7 +368,7 @@ with tab4:
         tara_teller = TELLER[chosen_teller]
         netto_essen = brutto_teller - tara_teller
         
-        if st.button("Teller-Kalorien ermitteln", type="primary"):
+        if st.button(":material/scale: Teller-Kalorien ermitteln", type="primary"):
             if brutto_teller <= 0:
                 st.warning("Bitte Bruttogewicht eingeben.")
             elif netto_essen <= 0:
@@ -350,7 +376,7 @@ with tab4:
             else:
                 mix_kcal_100 = st.session_state["saved_mischungen"][chosen_mix]["kcal_100g"]
                 portion_kcal = (netto_essen / 100.0) * mix_kcal_100
-                st.markdown("### 🎯 Dein Teller-Ergebnis:")
+                st.subheader("Ergebnis für deinen Teller")
                 tc1, tc2, tc3 = st.columns(3)
                 tc1.metric("Portions-Kalorien", f"{portion_kcal:,.0f} kcal")
                 tc2.metric("Essen auf dem Teller", f"{netto_essen:,.0f} g")
