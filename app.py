@@ -65,7 +65,7 @@ st.markdown("""
         background-color: #1a1d23; border: 1px solid #2a2e39; padding: 15px; border-radius: 4px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
     }
     [data-testid="stMetricLabel"] { color: #90A4AE !important; text-transform: uppercase; font-size: 0.75rem !important; letter-spacing: 0.5px; }
-    [data-testid="stMetricValue"] { color: #00E5FF !important; font-family: 'Roboto Mono', monospace !important; font-weight: 700 !important; }
+    [data-testid="stMetricValue"] { color: #00E5FF !important; font-family: 'Roboto Mono', monospace !important; font-weight: 700 !important; font-size: 1.6rem !important; }
     
     /* --- ECHTE BROWSER-REITER MIT LINIE --- */
     .stTabs [data-baseweb="tab-list"] { 
@@ -149,7 +149,6 @@ def get_working_model():
             m.name for m in genai.list_models() 
             if 'generateContent' in m.supported_generation_methods
         ]
-        # Prioritätsliste: Zuerst nach 3.0 / 3.x Flash suchen, dann nach 'flash-latest'
         for keyword in ['gemini-3', 'flash-latest', 'pro-latest', 'flash']:
             for m_name in avail:
                 if keyword in m_name and '1.5' not in m_name and '2.0' not in m_name and '2.5' not in m_name:
@@ -168,21 +167,22 @@ def analyze_ingredients_with_gemini(ingredients_text):
         return None
         
     prompt = f"""
-    Du bist ein präziser Ernährungs- und Küchenassistent. Analysiere die folgende Zutatenliste für ein Gericht.
-    Ermittle für jede Zutat das Gewicht in Gramm (ml bei Flüssigkeiten = g) und die Gesamtkalorien (kcal) für die angegebene Menge.
+    Du bist ein präziser Ernährungs- und Küchenassistent. Analysiere die folgende Zutatenliste.
+    Ermittle für jede Zutat das Gewicht in Gramm (ml bei Flüssigkeiten = g, 1 EL = ca. 15g, 1 TL = ca. 5g) und die Gesamtkalorien (kcal) für die angegebene Menge.
+    WICHTIG: Wasser, Nudelwasser oder Pastawasser hat 0 kcal, zählt aber voll beim Gewicht in Gramm mit!
     Wenn der Nutzer Kalorienangaben pro 100g mitliefert (z.B. "1600g Hackfleisch mit 247 kcal pro 100g"), nutze exakt diese Werte zur Berechnung!
     
     Zutatenliste:
     {ingredients_text}
     
-    Antworte AUSSCHLIESSLICH im folgenden JSON-Format ohne Markdown-Code-Blöcke darum, genau so:
+    Antworte AUSSCHLIESSHLICH im folgenden JSON-Format ohne Markdown-Code-Blöcke darum, genau so:
     {{
       "zutaten_details": [
-        {{"name": "Zutat 1", "gewicht_g": 1600, "kcal": 3952}},
-        {{"name": "Zutat 2", "gewicht_g": 800, "kcal": 160}}
+        {{"name": "Zutat 1", "gewicht_g": 100, "kcal": 400}},
+        {{"name": "Pastawasser", "gewicht_g": 100, "kcal": 0}}
       ],
-      "gesamt_rohgewicht_g": 2400,
-      "gesamt_kcal": 4112
+      "gesamt_rohgewicht_g": 200,
+      "gesamt_kcal": 400
     }}
     """
     try:
@@ -192,7 +192,6 @@ def analyze_ingredients_with_gemini(ingredients_text):
         clean_text = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(clean_text)
     except Exception as e:
-        # Falls das gecachte Modell fehlschlägt, Cache leeren
         st.session_state.pop("working_gemini_model", None)
         st.error(f"Fehler bei der KI-Analyse: {e}")
         return None
@@ -268,7 +267,7 @@ with tab1:
                         c1, c2, c3 = st.columns(3)
                         c1.metric("Gesamtkalorien", f"{gesamt_kcal:,.0f} kcal")
                         c2.metric("Nettogewicht", f"{netto_sosse:,.0f} g")
-                        c3.metric("Kaloriendichte", f"{kcal_100g:.1f} kcal/100g")
+                        c3.metric("Kalorien / 100g", f"{kcal_100g:.1f} kcal")
                         
                         st.info(f"Kochverlust (Verdunstung): {verlust_g:.0f} g ({verlust_pct:.1f}%) — Rohgewicht war ca. {rohgewicht_ki} g")
                         
@@ -316,7 +315,7 @@ with tab2:
             nc1, nc2, nc3 = st.columns(3)
             nc1.metric("Gesamtkalorien", f"{gesamt_kcal_n:,.0f} kcal")
             nc2.metric("Gekochtes Gewicht", f"{netto_nudel:,.0f} g")
-            nc3.metric("Kaloriendichte", f"{kcal_100g_gekocht:.1f} kcal/100g")
+            nc3.metric("Kalorien / 100g", f"{kcal_100g_gekocht:.1f} kcal")
             st.session_state["saved_beilagen"][beilagen_name] = {"kcal_100g": kcal_100g_gekocht}
             st.toast(f"Beilage '{beilagen_name}' gespeichert!")
 
@@ -333,35 +332,56 @@ with tab3:
                     del st.session_state["saved_mischungen"][m_name]
                     st.rerun()
 
-    st.write("Kombiniere Soße, gekochte Nudeln, Nudelwasser und Extras zu einer neuen Gesamtmischung.")
+    st.write("Kombiniere Soße, gekochte Nudeln und beliebige Extras zu einer neuen Gesamtmischung.")
     misch_name = st.text_input("Name der Mischung", "Bolognese mit Spaghetti")
     s_list = list(st.session_state["saved_sossen"].keys())
     b_list = list(st.session_state["saved_beilagen"].keys())
     
     if s_list and b_list:
-        chosen_s = st.selectbox("Soße wählen", s_list)
-        menge_s_g = st.number_input("Menge Soße hinzugefügt (g):", min_value=0.0, step=10.0, value=600.0)
-        chosen_b = st.selectbox("Beilage wählen", b_list)
-        menge_b_g = st.number_input("Menge gekochte Beilage hinzugefügt (g):", min_value=0.0, step=10.0, value=1150.0)
+        col_m1, col_m2 = st.columns(2)
+        with col_m1:
+            chosen_s = st.selectbox("Soße wählen", s_list)
+            menge_s_g = st.number_input("Menge Soße (g):", min_value=0.0, step=10.0, value=600.0)
+        with col_m2:
+            chosen_b = st.selectbox("Beilage wählen", b_list)
+            menge_b_g = st.number_input("Menge gekochte Beilage (g):", min_value=0.0, step=10.0, value=1150.0)
         
-        col_ex1, col_ex2 = st.columns(2)
-        with col_ex1:
-            nudelwasser_g = st.number_input("Nudelwasser hinzugefügt (ml/g):", min_value=0.0, step=10.0, value=100.0)
-        with col_ex2:
-            extra_kcal = st.number_input("Extras-Kalorien (z.B. 50g Parmesan = 215 kcal):", min_value=0.0, step=10.0, value=215.0)
+        extras_input = st.text_area(
+            "Extras & Flüssigkeiten frei eingeben (optional, gerne per Sprache):",
+            placeholder="z.B. 100ml Pastawasser, 100g Parmesan, 2 EL Crème fraîche..."
+        )
             
         if st.button(":material/merge: Mischung berechnen & speichern", type="primary"):
             kcal_s = (menge_s_g / 100.0) * st.session_state["saved_sossen"][chosen_s]["kcal_100g"]
             kcal_b = (menge_b_g / 100.0) * st.session_state["saved_beilagen"][chosen_b]["kcal_100g"]
+            
+            extra_kcal = 0.0
+            extra_g = 0.0
+            extra_details = []
+            
+            if extras_input.strip():
+                with st.spinner("Analysiere Extras..."):
+                    extra_data = analyze_ingredients_with_gemini(extras_input)
+                    if extra_data:
+                        extra_kcal = extra_data.get("gesamt_kcal", 0.0)
+                        extra_g = extra_data.get("gesamt_rohgewicht_g", 0.0)
+                        extra_details = extra_data.get("zutaten_details", [])
+            
             gesamt_misch_kcal = kcal_s + kcal_b + extra_kcal
-            gesamt_misch_g = menge_s_g + menge_b_g + nudelwasser_g
+            gesamt_misch_g = menge_s_g + menge_b_g + extra_g
             kcal_100g_mix = (gesamt_misch_kcal / gesamt_misch_g) * 100 if gesamt_misch_g > 0 else 0
             
             st.success("Mischung erfolgreich berechnet!")
             mc1, mc2, mc3 = st.columns(3)
             mc1.metric("Gesamtkalorien Mix", f"{gesamt_misch_kcal:,.0f} kcal")
             mc2.metric("Gesamtgewicht Mix", f"{gesamt_misch_g:,.0f} g")
-            mc3.metric("Neue Kaloriendichte", f"{kcal_100g_mix:.1f} kcal/100g")
+            mc3.metric("Kalorien / 100g", f"{kcal_100g_mix:.1f} kcal")
+            
+            if extra_details:
+                with st.expander(":material/list: Erkannte Extras im Mix"):
+                    for z in extra_details:
+                        st.write(f"- **{z['name']}**: {z['gewicht_g']} g ({z['kcal']} kcal)")
+                        
             st.session_state["saved_mischungen"][misch_name] = {"kcal_100g": kcal_100g_mix}
             st.toast(f"Mischung '{misch_name}' gespeichert!")
     else:
