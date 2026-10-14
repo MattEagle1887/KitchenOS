@@ -3,7 +3,7 @@ import google.generativeai as genai
 import json
 
 # --- Konfiguration & Custom Dark-Steel-Design (Technical / Roboto) ---
-st.set_page_config(page_title="Kitchen & Meal Prep OS", page_icon="🍳", layout="centered")
+st.set_page_config(page_title="Kitchen OS", page_icon="🍳", layout="centered")
 
 st.markdown("""
     <style>
@@ -116,31 +116,37 @@ def analyze_ingredients_with_gemini(ingredients_text):
       "gesamt_kcal": 4112
     }}
     """
+    
+    # Liste der aktuellsten Modelle (inkl. Fallback-Schleife, falls ein Modell für neue Keys gesperrt ist)
+    candidate_models = [
+        'gemini-flash-latest',
+        'gemini-3.0-flash',
+        'gemini-3.8-flash',
+        'gemini-2.0-flash'
+    ]
+    
     try:
-        available_models = [
-            m.name for m in genai.list_models() 
-            if 'generateContent' in m.supported_generation_methods
-        ]
-        
-        chosen_model = None
-        for preferred in ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-pro']:
-            for m in available_models:
-                if preferred in m:
-                    chosen_model = m
-                    break
-            if chosen_model:
-                break
-                
-        if not chosen_model and available_models:
-            chosen_model = available_models[0]
+        # Zusätzlich alle laut API verfügbaren 3er- oder latest-Modelle abrufen
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                if ('3.' in m.name or 'latest' in m.name) and m.name not in candidate_models:
+                    candidate_models.insert(0, m.name)
+    except Exception:
+        pass
+
+    last_error = None
+    for model_name in candidate_models:
+        try:
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content(prompt)
+            clean_text = response.text.replace("```json", "").replace("```", "").strip()
+            return json.loads(clean_text)
+        except Exception as e:
+            last_error = e
+            continue
             
-        model = genai.GenerativeModel(chosen_model)
-        response = model.generate_content(prompt)
-        clean_text = response.text.replace("```json", "").replace("```", "").strip()
-        return json.loads(clean_text)
-    except Exception as e:
-        st.error(f"Fehler bei der KI-Analyse: {e}")
-        return None
+    st.error(f"Fehler bei der KI-Analyse: {last_error}")
+    return None
 
 # --- Session States ---
 if "saved_sossen" not in st.session_state:
